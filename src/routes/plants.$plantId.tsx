@@ -90,7 +90,8 @@ function PlantDetail() {
         {/* Intro */}
         <div className="glass mt-4 p-5 flex gap-3 items-start">
           <Sparkles className="size-4 text-leaf mt-1 shrink-0" />
-          <p className="text-foreground leading-relaxed italic">"{plant.introMessage}"</p>
+          <p className="text-foreground leading-relaxed italic flex-1">"{plant.introMessage}"</p>
+          <SpeakButton text={plant.introMessage} />
         </div>
 
         {/* Scores */}
