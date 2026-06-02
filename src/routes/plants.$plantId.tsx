@@ -384,6 +384,33 @@ function PlantChat({ plant }: { plant: Plant }) {
       </div>
 
       <form onSubmit={onSend} className="mt-4 glass rounded-2xl p-2 flex gap-2 items-end">
+        <button
+          type="button"
+          onClick={() => {
+            const next = !voiceOn;
+            setVoiceOn(next);
+            if (!next) window.speechSynthesis?.cancel();
+          }}
+          className={`size-10 rounded-xl flex items-center justify-center transition ${
+            voiceOn ? "bg-leaf text-primary-foreground" : "glass text-muted-foreground hover:text-foreground"
+          }`}
+          aria-label={voiceOn ? "Voice replies on" : "Voice replies off"}
+          title={voiceOn ? "Voice replies on" : "Voice replies off"}
+        >
+          {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={toggleListen}
+          className={`size-10 rounded-xl flex items-center justify-center transition ${
+            listening
+              ? "bg-critical text-primary-foreground animate-pulse-glow"
+              : "glass text-muted-foreground hover:text-foreground"
+          }`}
+          aria-label={listening ? "Stop listening" : "Speak to your plant"}
+        >
+          {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+        </button>
         <textarea
           ref={textareaRef}
           value={input}
@@ -395,7 +422,7 @@ function PlantChat({ plant }: { plant: Plant }) {
             }
           }}
           rows={1}
-          placeholder={`Ask ${plant.name} anything…`}
+          placeholder={listening ? "Listening…" : `Ask ${plant.name} anything…`}
           className="flex-1 bg-transparent outline-none resize-none px-3 py-2 max-h-32"
         />
         <button
