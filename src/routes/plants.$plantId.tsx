@@ -187,8 +187,12 @@ function PlantChat({ plant }: { plant: Plant }) {
   );
 
   const [input, setInput] = useState("");
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [listening, setListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const spokenIdsRef = useRef<Set<string>>(new Set());
 
   const { messages, sendMessage, status, error } = useChat({
     id: plant.id,
