@@ -28,19 +28,39 @@ function ScanPage() {
   useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
 
   async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Camera API unavailable in this browser. Use Upload instead.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setStreaming(true);
-    } catch {
-      toast.error("Camera unavailable — upload a photo instead.");
+      requestAnimationFrame(async () => {
+        const v = videoRef.current;
+        if (!v) return;
+        v.srcObject = stream;
+        v.muted = true;
+        v.playsInline = true;
+        try {
+          await v.play();
+        } catch (e) {
+          console.error("video.play failed", e);
+        }
+      });
+    } catch (err) {
+      const e = err as DOMException;
+      console.error("getUserMedia failed", e);
+      const map: Record<string, string> = {
+        NotAllowedError: "Camera permission denied. Allow access or upload a photo.",
+        NotFoundError: "No camera found. Upload a photo instead.",
+        NotReadableError: "Camera is in use by another app.",
+        SecurityError: "Camera blocked by browser security. Open in a new tab or upload.",
+      };
+      toast.error(map[e?.name] ?? `Camera unavailable (${e?.name || "unknown"}). Use Upload.`);
     }
   }
 
@@ -52,7 +72,10 @@ function ScanPage() {
 
   function capture() {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !v.videoWidth) {
+      toast.error("Camera not ready yet — wait a moment and try again.");
+      return;
+    }
     const canvas = document.createElement("canvas");
     const w = Math.min(v.videoWidth, 1024);
     const ratio = v.videoHeight / v.videoWidth;
