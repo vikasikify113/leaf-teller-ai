@@ -198,7 +198,6 @@ function ScanPage() {
                   ref={fileRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   onChange={onUpload}
                 />
