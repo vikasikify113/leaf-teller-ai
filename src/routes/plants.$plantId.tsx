@@ -5,7 +5,7 @@ import type { Plant } from "@/lib/plant-types";
 import { useChat } from "@ai-sdk/react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, BookOpen, MessageCircle, Send, Sparkles, TrendingUp, Trash2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, BookOpen, MessageCircle, Mic, MicOff, Send, Sparkles, TrendingUp, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -187,8 +187,12 @@ function PlantChat({ plant }: { plant: Plant }) {
   );
 
   const [input, setInput] = useState("");
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [listening, setListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const spokenIdsRef = useRef<Set<string>>(new Set());
 
   const { messages, sendMessage, status, error } = useChat({
     id: plant.id,
@@ -250,6 +254,77 @@ function PlantChat({ plant }: { plant: Plant }) {
     if (error) toast.error(error.message);
   }, [error]);
 
+  // Auto-speak new assistant messages when voice mode is on
+  useEffect(() => {
+    if (!voiceOn) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (spokenIdsRef.current.has(last.id)) return;
+    if (status === "submitted" || status === "streaming") return;
+    const text = last.parts.map((p) => (p.type === "text" ? p.text : "")).join("").trim();
+    if (!text) return;
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    spokenIdsRef.current.add(last.id);
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.05;
+    synth.cancel();
+    synth.speak(u);
+  }, [messages, status, voiceOn]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  function toggleListen() {
+    const SR: any =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Voice input not supported in this browser. Try Chrome.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    window.speechSynthesis?.cancel();
+    const rec = new SR();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = (e: any) => {
+      console.error("speech error", e);
+      toast.error(`Mic error: ${e.error || "unknown"}`);
+      setListening(false);
+    };
+    rec.onend = () => {
+      setListening(false);
+      const t = (finalText || "").trim();
+      if (t) {
+        setInput(t);
+        setVoiceOn(true);
+        setTimeout(() => onSend(), 50);
+      }
+    };
+    recognitionRef.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch (err) {
+      console.error(err);
+      setListening(false);
+    }
+  }
+
   function onSend(e?: React.FormEvent) {
     e?.preventDefault();
     if (!input.trim() || status === "submitted" || status === "streaming") return;
@@ -309,6 +384,33 @@ function PlantChat({ plant }: { plant: Plant }) {
       </div>
 
       <form onSubmit={onSend} className="mt-4 glass rounded-2xl p-2 flex gap-2 items-end">
+        <button
+          type="button"
+          onClick={() => {
+            const next = !voiceOn;
+            setVoiceOn(next);
+            if (!next) window.speechSynthesis?.cancel();
+          }}
+          className={`size-10 rounded-xl flex items-center justify-center transition ${
+            voiceOn ? "bg-leaf text-primary-foreground" : "glass text-muted-foreground hover:text-foreground"
+          }`}
+          aria-label={voiceOn ? "Voice replies on" : "Voice replies off"}
+          title={voiceOn ? "Voice replies on" : "Voice replies off"}
+        >
+          {voiceOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={toggleListen}
+          className={`size-10 rounded-xl flex items-center justify-center transition ${
+            listening
+              ? "bg-critical text-primary-foreground animate-pulse-glow"
+              : "glass text-muted-foreground hover:text-foreground"
+          }`}
+          aria-label={listening ? "Stop listening" : "Speak to your plant"}
+        >
+          {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+        </button>
         <textarea
           ref={textareaRef}
           value={input}
@@ -320,7 +422,7 @@ function PlantChat({ plant }: { plant: Plant }) {
             }
           }}
           rows={1}
-          placeholder={`Ask ${plant.name} anything…`}
+          placeholder={listening ? "Listening…" : `Ask ${plant.name} anything…`}
           className="flex-1 bg-transparent outline-none resize-none px-3 py-2 max-h-32"
         />
         <button
