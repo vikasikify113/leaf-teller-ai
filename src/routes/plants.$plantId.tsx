@@ -5,7 +5,7 @@ import type { Plant } from "@/lib/plant-types";
 import { useChat } from "@ai-sdk/react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, BookOpen, MessageCircle, Send, Sparkles, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, MessageCircle, Send, Sparkles, TrendingUp, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
