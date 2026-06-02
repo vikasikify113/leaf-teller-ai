@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateObject, generateText } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
@@ -10,32 +10,61 @@ function getModel() {
   return gw("google/gemini-2.5-flash");
 }
 
+const score = z.coerce.number().min(0).max(100).catch(50);
+
 const AnalysisSchema = z.object({
-  species: z.string().describe("Best guess plant species or common name"),
-  emoji: z.string().describe("A single fitting plant emoji"),
-  scores: z.object({
-    happiness: z.number().min(0).max(100),
-    health: z.number().min(0).max(100),
-    hydration: z.number().min(0).max(100),
-    nutrition: z.number().min(0).max(100),
-    growth: z.number().min(0).max(100),
-    diseaseRisk: z.number().min(0).max(100),
-  }),
-  mood: z.enum(["happy", "ok", "warning", "critical"]),
-  introMessage: z.string().describe("A warm, first-person greeting from the plant (2-3 sentences)"),
-  diaryEntry: z.string().describe("A short first-person diary note about today's condition"),
-  recommendations: z.array(z.string()).min(2).max(5),
+  species: z.string().catch("Unknown plant"),
+  emoji: z.string().catch("🌱"),
+  scores: z
+    .object({
+      happiness: score,
+      health: score,
+      hydration: score,
+      nutrition: score,
+      growth: score,
+      diseaseRisk: score,
+    })
+    .catch({
+      happiness: 50,
+      health: 50,
+      hydration: 50,
+      nutrition: 50,
+      growth: 50,
+      diseaseRisk: 50,
+    }),
+  mood: z
+    .string()
+    .transform((v) => {
+      const m = v.toLowerCase();
+      if (["happy", "ok", "warning", "critical"].includes(m)) return m;
+      return "ok";
+    })
+    .pipe(z.enum(["happy", "ok", "warning", "critical"]))
+    .catch("ok"),
+  introMessage: z.string().catch("Hello! I'm glad you're here."),
+  diaryEntry: z.string().catch("Today felt like a normal day."),
+  recommendations: z.array(z.string()).catch([]),
   predictions: z
     .array(
       z.object({
         label: z.string(),
-        probability: z.number().min(0).max(100),
-        timeframe: z.string(),
+        probability: score,
+        timeframe: z.string().catch("soon"),
       }),
     )
-    .min(1)
-    .max(4),
+    .catch([]),
 });
+
+function extractJSON(raw: string): unknown {
+  let s = raw.trim();
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  if (!s.startsWith("{") && !s.startsWith("[")) {
+    const start = s.indexOf("{");
+    const end = s.lastIndexOf("}");
+    if (start !== -1 && end > start) s = s.slice(start, end + 1);
+  }
+  return JSON.parse(s);
+}
 
 export const analyzePlantImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
@@ -50,24 +79,33 @@ export const analyzePlantImage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const model = getModel();
 
-    const { object } = await generateObject({
+    const { text } = await generateText({
       model,
-      schema: AnalysisSchema,
-      schemaName: "PlantAnalysis",
       messages: [
         {
           role: "system",
           content: `You are PlantaSpeak AI. You analyze plant photos and let the plant speak in the first person.
-Respond ONLY in ${data.language}. Be warm, conversational, and educational — never robotic.
-The plant talks like a friendly intelligent being. Be honest about visible issues but encouraging.
-You MUST return a valid JSON object matching the provided schema. All numeric scores are 0-100 integers. Mood must be one of: happy, ok, warning, critical.`,
+Respond ONLY in ${data.language}. Be warm, conversational, and educational.
+
+Return ONLY a raw JSON object (no markdown, no commentary) with EXACTLY this shape:
+{
+  "species": string,
+  "emoji": string (single emoji),
+  "scores": { "happiness": number 0-100, "health": number 0-100, "hydration": number 0-100, "nutrition": number 0-100, "growth": number 0-100, "diseaseRisk": number 0-100 },
+  "mood": "happy" | "ok" | "warning" | "critical",
+  "introMessage": string (2-3 sentences, first-person from the plant),
+  "diaryEntry": string (short first-person diary note),
+  "recommendations": string[] (2-5 items),
+  "predictions": [{ "label": string, "probability": number 0-100, "timeframe": string }] (1-4 items)
+}
+Use raw numbers (no commas, no % signs).`,
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Analyze this plant${data.nickname ? ` (the owner calls it "${data.nickname}")` : ""}. Identify species, assess visual health, and let the plant speak.`,
+              text: `Analyze this plant${data.nickname ? ` (the owner calls it "${data.nickname}")` : ""}. Identify species, assess visual health, and let the plant speak. Return JSON only.`,
             },
             { type: "image", image: data.imageDataUrl },
           ],
@@ -75,7 +113,13 @@ You MUST return a valid JSON object matching the provided schema. All numeric sc
       ],
     });
 
-    return object;
+    let parsed: unknown;
+    try {
+      parsed = extractJSON(text);
+    } catch {
+      throw new Error("The plant whispered something unreadable. Please try again.");
+    }
+    return AnalysisSchema.parse(parsed);
   });
 
 export const generatePlantToPlantConversation = createServerFn({ method: "POST" })
