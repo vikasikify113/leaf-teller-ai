@@ -9,10 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ScanRouteImport } from './routes/scan'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlantsIndexRouteImport } from './routes/plants.index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 
+const ScanRoute = ScanRouteImport.update({
+  id: '/scan',
+  path: '/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -21,6 +28,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlantsIndexRoute = PlantsIndexRouteImport.update({
+  id: '/plants/',
+  path: '/plants/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -32,35 +44,50 @@ const ApiChatRoute = ApiChatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/scan': typeof ScanRoute
   '/api/chat': typeof ApiChatRoute
+  '/plants/': typeof PlantsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/scan': typeof ScanRoute
   '/api/chat': typeof ApiChatRoute
+  '/plants': typeof PlantsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/scan': typeof ScanRoute
   '/api/chat': typeof ApiChatRoute
+  '/plants/': typeof PlantsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/api/chat'
+  fullPaths: '/' | '/dashboard' | '/scan' | '/api/chat' | '/plants/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/api/chat'
-  id: '__root__' | '/' | '/dashboard' | '/api/chat'
+  to: '/' | '/dashboard' | '/scan' | '/api/chat' | '/plants'
+  id: '__root__' | '/' | '/dashboard' | '/scan' | '/api/chat' | '/plants/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  ScanRoute: typeof ScanRoute
   ApiChatRoute: typeof ApiChatRoute
+  PlantsIndexRoute: typeof PlantsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/scan': {
+      id: '/scan'
+      path: '/scan'
+      fullPath: '/scan'
+      preLoaderRoute: typeof ScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -73,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plants/': {
+      id: '/plants/'
+      path: '/plants'
+      fullPath: '/plants/'
+      preLoaderRoute: typeof PlantsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -88,7 +122,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  ScanRoute: ScanRoute,
   ApiChatRoute: ApiChatRoute,
+  PlantsIndexRoute: PlantsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
