@@ -50,15 +50,17 @@ export const analyzePlantImage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const model = getModel();
 
-    const { experimental_output } = await generateText({
+    const { object } = await generateObject({
       model,
-      experimental_output: Output.object({ schema: AnalysisSchema }),
+      schema: AnalysisSchema,
+      mode: "json",
       messages: [
         {
           role: "system",
           content: `You are PlantaSpeak AI. You analyze plant photos and let the plant speak in the first person.
 Respond ONLY in ${data.language}. Be warm, conversational, and educational — never robotic.
-The plant talks like a friendly intelligent being. Be honest about visible issues but encouraging.`,
+The plant talks like a friendly intelligent being. Be honest about visible issues but encouraging.
+You MUST return a valid JSON object matching the provided schema. All numeric scores are 0-100 integers. Mood must be one of: happy, ok, warning, critical.`,
         },
         {
           role: "user",
@@ -73,7 +75,7 @@ The plant talks like a friendly intelligent being. Be honest about visible issue
       ],
     });
 
-    return experimental_output;
+    return object;
   });
 
 export const generatePlantToPlantConversation = createServerFn({ method: "POST" })
