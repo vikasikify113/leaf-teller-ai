@@ -254,6 +254,77 @@ function PlantChat({ plant }: { plant: Plant }) {
     if (error) toast.error(error.message);
   }, [error]);
 
+  // Auto-speak new assistant messages when voice mode is on
+  useEffect(() => {
+    if (!voiceOn) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (spokenIdsRef.current.has(last.id)) return;
+    if (status === "submitted" || status === "streaming") return;
+    const text = last.parts.map((p) => (p.type === "text" ? p.text : "")).join("").trim();
+    if (!text) return;
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    spokenIdsRef.current.add(last.id);
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.05;
+    synth.cancel();
+    synth.speak(u);
+  }, [messages, status, voiceOn]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  function toggleListen() {
+    const SR: any =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Voice input not supported in this browser. Try Chrome.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    window.speechSynthesis?.cancel();
+    const rec = new SR();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = (e: any) => {
+      console.error("speech error", e);
+      toast.error(`Mic error: ${e.error || "unknown"}`);
+      setListening(false);
+    };
+    rec.onend = () => {
+      setListening(false);
+      const t = (finalText || "").trim();
+      if (t) {
+        setInput(t);
+        setVoiceOn(true);
+        setTimeout(() => onSend(), 50);
+      }
+    };
+    recognitionRef.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch (err) {
+      console.error(err);
+      setListening(false);
+    }
+  }
+
   function onSend(e?: React.FormEvent) {
     e?.preventDefault();
     if (!input.trim() || status === "submitted" || status === "streaming") return;
