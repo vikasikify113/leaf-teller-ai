@@ -177,12 +177,18 @@ function PlantChat({ plant }: { plant: Plant }) {
             ts: Date.now(),
           });
           // and ensure the latest user message is persisted
-          const lastUser = messages.findLast?.((m) => m.role === "user");
+          let lastUser: UIMessage | undefined;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "user") {
+              lastUser = messages[i];
+              break;
+            }
+          }
           if (lastUser) {
             const utext = lastUser.parts
               .map((p) => (p.type === "text" ? p.text : ""))
               .join("");
-            if (utext && !fresh.chat.some((c) => c.id === lastUser.id)) {
+            if (utext && !fresh.chat.some((c) => c.id === lastUser!.id)) {
               appendChat(plant.id, {
                 id: lastUser.id,
                 role: "user",
