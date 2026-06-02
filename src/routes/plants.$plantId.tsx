@@ -16,6 +16,40 @@ export const Route = createFileRoute("/plants/$plantId")({
 
 type Tab = "chat" | "diary" | "predict";
 
+function SpeakButton({ text }: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const toggle = () => {
+    const synth = window.speechSynthesis;
+    if (!synth) {
+      toast.error("Voice not supported in this browser.");
+      return;
+    }
+    if (speaking) {
+      synth.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.05;
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    synth.cancel();
+    synth.speak(u);
+    setSpeaking(true);
+  };
+  return (
+    <button
+      onClick={toggle}
+      aria-label={speaking ? "Stop voice" : "Read aloud"}
+      className="size-9 shrink-0 rounded-full glass hover:bg-leaf/20 transition flex items-center justify-center text-leaf"
+    >
+      {speaking ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+    </button>
+  );
+}
+
 function PlantDetail() {
   const { plantId } = useParams({ from: "/plants/$plantId" });
   const navigate = useNavigate();
