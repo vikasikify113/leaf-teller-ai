@@ -53,7 +53,7 @@ export const analyzePlantImage = createServerFn({ method: "POST" })
     const { object } = await generateObject({
       model,
       schema: AnalysisSchema,
-      mode: "json",
+      schemaName: "PlantAnalysis",
       messages: [
         {
           role: "system",
