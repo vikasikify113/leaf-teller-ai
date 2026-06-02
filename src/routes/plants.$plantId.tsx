@@ -5,7 +5,7 @@ import type { Plant } from "@/lib/plant-types";
 import { useChat } from "@ai-sdk/react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, BookOpen, MessageCircle, Send, Sparkles, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, MessageCircle, Send, Sparkles, TrendingUp, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +15,40 @@ export const Route = createFileRoute("/plants/$plantId")({
 });
 
 type Tab = "chat" | "diary" | "predict";
+
+function SpeakButton({ text }: { text: string }) {
+  const [speaking, setSpeaking] = useState(false);
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const toggle = () => {
+    const synth = window.speechSynthesis;
+    if (!synth) {
+      toast.error("Voice not supported in this browser.");
+      return;
+    }
+    if (speaking) {
+      synth.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95;
+    u.pitch = 1.05;
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    synth.cancel();
+    synth.speak(u);
+    setSpeaking(true);
+  };
+  return (
+    <button
+      onClick={toggle}
+      aria-label={speaking ? "Stop voice" : "Read aloud"}
+      className="size-9 shrink-0 rounded-full glass hover:bg-leaf/20 transition flex items-center justify-center text-leaf"
+    >
+      {speaking ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+    </button>
+  );
+}
 
 function PlantDetail() {
   const { plantId } = useParams({ from: "/plants/$plantId" });
@@ -90,7 +124,8 @@ function PlantDetail() {
         {/* Intro */}
         <div className="glass mt-4 p-5 flex gap-3 items-start">
           <Sparkles className="size-4 text-leaf mt-1 shrink-0" />
-          <p className="text-foreground leading-relaxed italic">"{plant.introMessage}"</p>
+          <p className="text-foreground leading-relaxed italic flex-1">"{plant.introMessage}"</p>
+          <SpeakButton text={plant.introMessage} />
         </div>
 
         {/* Scores */}
